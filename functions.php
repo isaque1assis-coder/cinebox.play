@@ -135,6 +135,49 @@ function temagemini_get_next_episode_data() {
 add_action('wp_ajax_get_next_episode_data', 'temagemini_get_next_episode_data');
 add_action('wp_ajax_nopriv_get_next_episode_data', 'temagemini_get_next_episode_data');
 
+/* ===================================================================
+   3.2 - FUNÇÕES AJAX PARA O PROGRESSO DO VÍDEO DO USUÁRIO
+=================================================================== */
+
+// Função chamada pelo JavaScript para salvar o progresso
+function temagemini_save_user_progress() {
+    if ( is_user_logged_in() && function_exists('mepr_current_user_is_member') && mepr_current_user_is_member() ) {
+        $user_id = get_current_user_id();
+        $post_id = intval($_POST['post_id']);
+        $time = floatval($_POST['time']);
+
+        $progress = get_user_meta($user_id, 'user_video_progress', true);
+        if ( ! is_array($progress) ) { $progress = array(); }
+
+        $progress[$post_id] = $time;
+
+        update_user_meta($user_id, 'user_video_progress', $progress);
+        wp_send_json_success('Progresso salvo.');
+    
+    }
+    wp_die();
+}
+add_action('wp_ajax_save_user_progress', 'temagemini_save_user_progress');
+
+
+// Função chamada quando o vídeo termina
+function temagemini_clear_user_progress() {
+    // VERIFICAÇÃO: A função só executa se o usuário for um membro ativo.
+    if ( is_user_logged_in() && function_exists('mepr_current_user_is_member') && mepr_current_user_is_member() ) {
+        $user_id = get_current_user_id();
+        $post_id = intval($_POST['post_id']);
+
+        $progress = get_user_meta($user_id, 'user_video_progress', true);
+        if ( is_array($progress) && isset($progress[$post_id]) ) {
+            unset($progress[$post_id]);
+            update_user_meta($user_id, 'user_video_progress', $progress);
+            wp_send_json_success('Progresso zerado.');
+        }
+    }
+    wp_die();
+}
+add_action('wp_ajax_clear_user_progress', 'temagemini_clear_user_progress');
+
 
 /* ===================================================================
    4. CUSTOMIZAÇÃO DO PAINEL DE ADMIN (WP-ADMIN)
@@ -385,3 +428,10 @@ function temagemini_register_series_taxonomy() {
     register_taxonomy( 'serie', array( 'post' ), $args );
 }
 add_action( 'init', 'temagemini_register_series_taxonomy', 0 );
+/* ===================================================================
+   10. AJUSTES FINOS DE PLUGINS
+=================================================================== */
+function temagemini_remove_pmpro_content_filter() {
+    remove_filter('the_content', 'pmpro_membership_content_filter', 5);
+}
+add_action('wp', 'temagemini_remove_pmpro_content_filter');
